@@ -90,6 +90,16 @@ def tobs():
 
     """Query the dates and temperature observations of the most active station for the last year of data."""
     """Return a JSON list of temperature observations (TOBS) for the previous year."""
+    recent_year = dt.date(2017, 8 ,23) 
+    previous_year = recent_year - dt.timedelta(days=365)
+
+    most_temps_station = session.query(Measurement.station, func.count(Measurement.tobs)).group_by(Measurement.station).order_by(func.count(Measurement.station).desc()).first()
+    most_temps_station=most_temps_station[0]
+
+    temperature_observations = session.query(Measurement.tobs).filter(Measurement.date >= previous_year).filter(Measurement.station == most_temps_station).all()
+    
+    return jsonify(temperature_observations)
+
 
 
 
@@ -97,4 +107,7 @@ def tobs():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+
+
 
