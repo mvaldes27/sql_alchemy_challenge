@@ -40,9 +40,13 @@ def welcome():
         f"Available Routes:<br/>"
         f"/api/v1.0/precipitation<br/>"
         f"/api/v1.0/stations<br/>"
-        f"/api/v1.0/tobs"
-        #f"/api/v1.0/<start><br/>"
-        #f"/api/v1.0/<start>/<end>"
+        f"/api/v1.0/tobs<br/>"
+        f"To search based on startdate: <br/>"
+        f"/api/v1.0/YYYY-MM-DD<br/>"
+        f"To search based on start and end date: <br/>"     
+        f"/api/v1.0/YYYY-MM-DD/YYYY-MM-DD <br/>"
+        f"Please note: <br/>"
+        f"Dates not available after 2017-08-23."
     )
 
 @app.route("/api/v1.0/precipitation")
@@ -60,9 +64,6 @@ def precipitation():
     # type(precip_query)
 
     session.close()
-
-    # Convert list of tuples into normal list
-    # precipitation = list(np.ravel(precip_query))
     
 
     return jsonify(precip_query)
@@ -101,6 +102,61 @@ def tobs():
     return jsonify(temperature_observations)
 
 
+@app.route("/api/v1.0/<start>")
+def start_day(start):
+    session = Session(engine)
+    """When given the start only, calculate `TMIN`, `TAVG`, and `TMAX` for all dates greater than and equal to the start date."""
+    # Change the date in string format to datatime.date
+    query_date = dt.datetime.strptime(start,'%Y-%m-%d').date()
+
+    temp_list = [func.min(Measurement.tobs), 
+             func.max(Measurement.tobs), 
+             func.avg(Measurement.tobs)]
+
+    #filter measurements between query dates
+
+    query_temps = session.query(*temp_list).\
+                filter(func.strftime('%Y-%m-%d', Measurement.date) >= query_date).all()
+
+    session.close()
+
+    return (
+        f"Analysis of temperature from {start} to 2017-08-23 (most recent date in database):<br/>"
+        f"---------------------------------------------------------------------------------<br/>"
+        f"Minimum temperature: {round(query_temps[0][0], 1)} °F<br/>"
+        f"Maximum temperature: {round(query_temps[0][1], 1)} °F<br/>"
+        f"Average temperature: {round(query_temps[0][2], 1)} °F"
+    )
+
+@app.route("/api/v1.0/<start>/<end>")
+def start_end(start, end):
+    
+    session = Session(engine)
+
+    # Change the date in string format to datatime.date
+    query_date_start = dt.datetime.strptime(start, '%Y-%m-%d').date()
+    query_date_end = dt.datetime.strptime(end, '%Y-%m-%d').date()
+
+    # Set up the list for query
+    temp_list = [func.min(Measurement.tobs), 
+             func.max(Measurement.tobs), 
+             func.avg(Measurement.tobs)]
+
+    # Pick out the measurements between the query date
+    query_temps = session.query(*temp_list).\
+                filter(func.strftime('%Y-%m-%d', Measurement.date) >= query_date_start).\
+                filter(func.strftime('%Y-%m-%d', Measurement.date) <= query_date_end).all()
+    
+    # Close Session
+    session.close()
+
+    return (
+        f"Analysis of temperature from {start} to {end}:<br/>"
+        f"--------------------------------------------------------------------- <br/>"
+        f"Minimum temperature: {round(query_temps[0][0], 1)} °F<br/>"
+        f"Maximum temperature: {round(query_temps[0][1], 1)} °F<br/>"
+        f"Average temperature: {round(query_temps[0][2], 1)} °F"
+    )
 
 
 
