@@ -1,7 +1,4 @@
 import numpy as np
-from matplotlib import style
-style.use('fivethirtyeight')
-import matplotlib.pyplot as plt
 import pandas as pd
 import datetime as dt
 from sqlalchemy.ext.automap import automap_base
@@ -36,15 +33,24 @@ app = Flask(__name__)
 def welcome():
     """List all available api routes"""
     return (
-        f"Welcome to the Climate API!<br/>"
+        f"Welcome to the Hawaii Climate API!<br/>"
+        f"--------------------------------------<br/>"
         f"Available Routes:<br/>"
+        f"--------------------------------------<br/>"
         f"/api/v1.0/precipitation<br/>"
         f"/api/v1.0/stations<br/>"
         f"/api/v1.0/tobs<br/>"
-        f"To search based on startdate: <br/>"
+        f"--------------------------------------<br/>"
+        f"To search based on start date (returned as string): <br/>"
         f"/api/v1.0/YYYY-MM-DD<br/>"
-        f"To search based on start and end date: <br/>"     
+        f"To search based on start date (returned as JSON): <br/>"
+        f"/api/v1.1/YYYY-MM-DD<br/>"
+        f"--------------------------------------<br/>"
+        f"To search based on start and end date (returned as string): <br/>"     
         f"/api/v1.0/YYYY-MM-DD/YYYY-MM-DD <br/>"
+        f"To search based on start and end date (returned as JSON): <br/>"     
+        f"/api/v1.1/YYYY-MM-DD/YYYY-MM-DD <br/>"
+        f"--------------------------------------<br/>"
         f"Please note: <br/>"
         f"Dates not available after 2017-08-23."
     )
@@ -101,7 +107,7 @@ def tobs():
     
     return jsonify(temperature_observations)
 
-
+#route for returning response as string
 @app.route("/api/v1.0/<start>")
 def start_day(start):
     session = Session(engine)
@@ -128,6 +134,28 @@ def start_day(start):
         f"Average temperature: {round(query_temps[0][2], 1)} °F"
     )
 
+#route for returning response as JSON
+@app.route("/api/v1.1/<start>")
+def start_dayjson(start):
+    session = Session(engine)
+    """When given the start only, calculate `TMIN`, `TAVG`, and `TMAX` for all dates greater than and equal to the start date."""
+    # Change the date in string format to datatime.date
+    query_date = dt.datetime.strptime(start,'%Y-%m-%d').date()
+
+    temp_list = [func.min(Measurement.tobs), 
+             func.max(Measurement.tobs), 
+             func.avg(Measurement.tobs)]
+
+    #filter measurements between query dates
+
+    query_temps = session.query(*temp_list).\
+                filter(func.strftime('%Y-%m-%d', Measurement.date) >= query_date).all()
+
+    session.close()
+
+    return jsonify(query_temps)
+
+#route to return response as string
 @app.route("/api/v1.0/<start>/<end>")
 def start_end(start, end):
     
@@ -158,7 +186,30 @@ def start_end(start, end):
         f"Average temperature: {round(query_temps[0][2], 1)} °F"
     )
 
+#route to return response as JSON
+@app.route("/api/v1.1/<start>/<end>")
+def start_endjson(start, end):
+    
+    session = Session(engine)
 
+    # Change the date in string format to datatime.date
+    query_date_start = dt.datetime.strptime(start, '%Y-%m-%d').date()
+    query_date_end = dt.datetime.strptime(end, '%Y-%m-%d').date()
+
+    # Set up the list for query
+    temp_list = [func.min(Measurement.tobs), 
+             func.max(Measurement.tobs), 
+             func.avg(Measurement.tobs)]
+
+    # Pick out the measurements between the query date
+    query_temps = session.query(*temp_list).\
+                filter(func.strftime('%Y-%m-%d', Measurement.date) >= query_date_start).\
+                filter(func.strftime('%Y-%m-%d', Measurement.date) <= query_date_end).all()
+    
+    # Close Session
+    session.close()
+
+    return jsonify(query_temps)
 
 
 if __name__ == "__main__":
